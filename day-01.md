@@ -1,112 +1,135 @@
-# Day 01 — enabled virtualisation, fixed a production incident, built an isolated lab
+# Day 01 — Linux fundamentals, per 01-START-HERE.md §7
 
-**Date:** 2026-08-11 · **Where:** a real Ubuntu 26.04 server, plus a new isolated VM on it
+**Where:** inside the isolated `lab-ubuntu` VM.
 
-## What I did
+## 1. Where am I, and who am I?
 
-**1. Checked and enabled hardware virtualisation**
-```bash
-egrep -c '(vmx|svm)' /proc/cpuinfo    # was 0 — virtualisation disabled in BIOS
-sudo kvm-ok                           # confirmed: "CPU does not support KVM extensions"
-```
-Enabled Intel VT-x in the BIOS, rebooted, verified:
-```bash
-egrep -c '(vmx|svm)' /proc/cpuinfo    # now 24 (2 flags x 12 cores)
-sudo kvm-ok                           # "KVM acceleration can be used"
-systemd-detect-virt                   # none — confirmed still bare metal
-```
+    whoami ; hostname ; pwd ; uname -a ; cat /etc/os-release
 
-**2. Found and fixed a real incident from the reboot**
+    ritik
+    lab-ubuntu
+    /home/ritik
+    Linux lab-ubuntu 6.8.0-136-generic #136-Ubuntu SMP PREEMPT_DYNAMIC Wed Jul 1 21:53:05 UTC 2026 x86_64
+    PRETTY_NAME="Ubuntu 24.04.4 LTS"
+    VERSION_CODENAME=noble
 
-After the reboot, `apache2.service` came up failed:
-```bash
-systemctl --failed
-sudo journalctl -u apache2 -b --no-pager | tail -40
-```
-Error: `(98)Address already in use: AH00072: make_sock: could not bind to address 0.0.0.0:80`
+## 2. Looking around
 
-Root-caused it step by step:
-```bash
-sudo apache2ctl configtest             # Syntax OK — config itself was fine
-sudo ss -tulnp | grep ':80 '           # nginx already held the port, 13 workers
-sudo apache2ctl -S                     # Apache only had the default, untouched vhost
-ls -la /etc/apache2/sites-enabled/     # just 000-default.conf, nothing configured
-history | grep -i apache               # no record of anyone ever using it
-```
-Conclusion: Apache was an unused default install losing a boot-order race against nginx —
-not an incident, just dead weight the reboot exposed. **Confirmed with the other person on this
-server before touching anything** (it's shared infrastructure).
+    ls
+    ls -la
 
-```bash
-sudo systemctl disable --now apache2
-sudo systemctl reset-failed apache2    # disable ≠ clears an existing failed state — different things
-systemctl is-enabled apache2           # disabled
-systemctl is-active apache2            # inactive
-```
+    (empty — just .bash_logout, .bashrc, .cache, .profile, .ssh)
 
-**3. Built an isolated lab so I never touch production again for practice**
+    ls -lah /etc
 
-Installed KVM/libvirt, created a VM (`lab-ubuntu`) on the isolated `192.168.122.0/24` network —
-completely separate from the host's production Docker networks and LAN:
-```bash
-sudo apt install -y qemu-system-x86 libvirt-daemon-system libvirt-clients bridge-utils virtinst cloud-image-utils
-sudo virt-install --name lab-ubuntu --memory 6144 --vcpus 4 \
-  --disk /var/lib/libvirt/images/lab-ubuntu.qcow2,bus=virtio \
-  --disk /var/lib/libvirt/images/lab-ubuntu-seed.iso,device=cdrom \
-  --osinfo detect=on,require=false --network network=default,model=virtio \
-  --graphics none --import --noautoconsole
-```
-Connected through the host as a bastion:
-```bash
-ssh -J ritik@ashwani-8755 ritik@192.168.122.57
-```
-Verified isolation before doing anything else:
-```bash
-whoami ; hostname          # ritik / lab-ubuntu
-ip addr show | grep 192.168.122
-```
-Took a snapshot as a permanent undo button:
-```bash
-sudo virsh snapshot-create-as lab-ubuntu clean-install --atomic
-```
+    (full /etc listing, ~200 entries — standard Ubuntu contents)
 
-**4. Linux fundamentals, inside the isolated VM**
-```bash
-pwd ; ls -la
-mkdir -p practice/day1 && cd practice/day1
-echo "hello" > a.txt ; echo "world" >> a.txt ; cat a.txt
-cp a.txt b.txt ; mv b.txt c.txt ; rm c.txt
+    cd /var/log
+    cd ..
+    cd ~
 
-mkdir -p ~/practice/exercise && cd ~/practice/exercise
-echo "all good" > log1.txt
-echo "error: disk full" > log2.txt
-echo "error: timeout" > log3.txt
-grep -l error *.txt              # -l = list only matching FILENAMES
-grep -l error *.txt | xargs rm   # pipe those filenames into rm
-ls -la                           # only log1.txt remains
-```
+**Not done yet:** `cd -`
 
-## What each thing taught me
+## 3. Making and moving things
 
-| Thing | What I learned |
-|---|---|
-| `kvm-ok` | Checking a CPU flag isn't enough — `kvm-ok` is the authoritative "can this actually run" check |
-| The Apache incident | A failed service after a reboot isn't automatically a real problem — trace it before assuming |
-| `disable` vs `reset-failed` | `disable` only stops it starting on the *next* boot. It doesn't clear the *current* failed state — two separate things I'd have assumed were one |
-| `ss -tulnp` | Shows exactly who owns a port and how many processes are bound to it |
-| `-J` (ProxyJump) | One SSH command can tunnel through a bastion host to a private-network VM in a single step |
-| `grep -l \| xargs rm` | Find things → act on them. Apparently this exact shape reappears constantly — AWS resources, Kubernetes pods, log lines |
+    mkdir -p /practice/day1
+
+    mkdir: cannot create directory '/practice': Permission denied
+
+    mkdir -p practice/day1
+    cd practice/day1
+    echo "hello" > a.txt
+    echo "world" >> a.txt
+    cat a.txt
+
+    hello
+    world
+
+    cp a.txt b.txt
+    mv b.txt c.txt
+    ls -la
+
+    a.txt, c.txt
+
+    rm c.txt
+    ls -la
+
+    only a.txt remains
+
+## 4. Reading files properly
+
+    cat /etc/passwd
+
+    (33 lines total — root, standard system accounts, ritik:x:1000:1000::/home/ritik:/bin/bash)
+
+    less /etc/passwd
+    head -5 /etc/passwd
+
+    root:x:0:0:root:/root:/bin/bash
+    daemon:x:1:1:daemon:/usr/sbin:/usr/sbin/nologin
+    bin:x:2:2:bin:/bin:/usr/sbin/nologin
+    sys:x:3:3:sys:/dev:/usr/sbin/nologin
+    sync:x:4:65534:sync:/bin:/bin/sync
+
+    tail -5 /etc/passwd
+
+    tcpdump:x:107:108::/nonexistent:/usr/sbin/nologin
+    landscape:x:108:109::/var/lib/landscape:/usr/sbin/nologin
+    fwupd-refresh:x:990:990:Firmware update daemon:/var/lib/fwupd:/usr/sbin/nologin
+    polkitd:x:989:989:User for polkitd:/:/usr/sbin/nologin
+    ritik:x:1000:1000::/home/ritik:/bin/bash
+
+    wc -l /etc/passwd
+
+    33 /etc/passwd
+
+## 5. Finding things
+
+    grep root /etc/passwd
+
+    root:x:0:0:root:/root:/bin/bash
+
+    grep -i ROOT /etc/passwd
+
+    root:x:0:0:root:/root:/bin/bash
+
+**Cut off, not confirmed:** `grep -r bash /etc/ 2>/dev/null` — output was incomplete in my terminal
+scrollback. Need to re-run and record the real result.
+
+**Not done yet:** `grep -c bash /etc/passwd`, `find /etc -name "*.conf"`, `find /etc -name "*.conf" -type f`,
+`find / -name "hosts" 2>/dev/null`
+
+## 6. The exercise that ties it together
+
+    mkdir -p ~/practice/exercise && cd ~/practice/exercise
+    echo "all good" > log1.txt
+    echo "error: disk full" > log2.txt
+    echo "error: timeout" > log3.txt
+    grep -l error *.txt
+    grep -l error *.txt | xargs rm
+    ls -la
+
+    only log1.txt remains
+
+## 7. Get unstuck without Google
+
+**Not done yet:** `man ls`, `ls --help`
 
 ## What broke
 
-Tried `ssh ritik@192.168.122.57` directly from my Mac first — timed out. That subnet only exists
-*inside* the host; it has no route from outside. Needed `ssh -J` to tunnel through the host as a
-bastion. Also hit `Whoami` (capital W) not found — Linux is case-sensitive everywhere, no exceptions.
+`mkdir -p /practice/day1` — permission denied, `/` is root-owned. Used a relative path
+inside my own home directory instead.
 
 ## What I still don't understand
 
-- Why `disable --now` didn't also clear the failed state the way I assumed "now" would
-- What `--osinfo detect=on,require=false` is actually doing differently from a named `--os-variant`
-- Whether I should be worried the CPU showed as the real model name instead of "QEMU Virtual CPU" —
-  turned out to be host-passthrough, which is the *better* mode, but I didn't know that going in
+- Why `/` is locked for a normal user but `/home/ritik` isn't — need to look at the actual
+  permission bits properly
+- What the real `grep -r bash /etc/` output actually shows — need to re-run it
 
+## Still to finish before Day 1 is actually done
+
+- `cd -`
+- `grep -c bash /etc/passwd`
+- both `find` commands
+- `man ls` and `ls --help`
+- say "What is Linux, and why do servers use it?" out loud, recorded
