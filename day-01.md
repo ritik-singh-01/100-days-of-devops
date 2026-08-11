@@ -1,4 +1,4 @@
-# Day 01 — Linux fundamentals, per 01-START-HERE.md §7
+# Day 01 — Linux fundamentals
 
 **Where:** inside the isolated `lab-ubuntu` VM.
 
