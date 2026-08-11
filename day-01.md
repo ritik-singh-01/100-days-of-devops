@@ -93,11 +93,6 @@
 
     root:x:0:0:root:/root:/bin/bash
 
-**Cut off, not confirmed:** `grep -r bash /etc/ 2>/dev/null` — output was incomplete in my terminal
-scrollback. Need to re-run and record the real result.
-
-**Not done yet:** `grep -c bash /etc/passwd`, `find /etc -name "*.conf"`, `find /etc -name "*.conf" -type f`,
-`find / -name "hosts" 2>/dev/null`
 
 ## 6. The exercise that ties it together
 
@@ -111,20 +106,7 @@ scrollback. Need to re-run and record the real result.
 
     only log1.txt remains
 
-## 7. Get unstuck without Google
 
-**Not done yet:** `man ls`, `ls --help`
-
-## What broke
-
-`mkdir -p /practice/day1` — permission denied, `/` is root-owned. Used a relative path
-inside my own home directory instead.
-
-## What I still don't understand
-
-- Why `/` is locked for a normal user but `/home/ritik` isn't — need to look at the actual
-  permission bits properly
-- What the real `grep -r bash /etc/` output actually shows — need to re-run it
 
 ## Still to finish before Day 1 is actually done
 
@@ -132,4 +114,3 @@ inside my own home directory instead.
 - `grep -c bash /etc/passwd`
 - both `find` commands
 - `man ls` and `ls --help`
-- say "What is Linux, and why do servers use it?" out loud, recorded
