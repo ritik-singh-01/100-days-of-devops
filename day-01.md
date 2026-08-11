@@ -110,7 +110,3 @@ bastion. Also hit `Whoami` (capital W) not found — Linux is case-sensitive eve
 - Whether I should be worried the CPU showed as the real model name instead of "QEMU Virtual CPU" —
   turned out to be host-passthrough, which is the *better* mode, but I didn't know that going in
 
-## Said out loud
-
-"How would I find out why a server is slow?" — CPU, memory, disk, network, then application logs.
-Also explained the Apache/nginx port conflict out loud as if to a non-technical colleague.
